@@ -24,7 +24,7 @@ struct MainWindow: View {
         }
         .frame(minWidth: 640, minHeight: 560)
         .background(.windowBackground)
-        .navigationTitle("Standing Desk")
+        .navigationTitle("Picostand")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -156,7 +156,7 @@ struct MainWindow: View {
                 AxisMarks(position: .leading) { val in
                     AxisValueLabel {
                         if let m = val.as(Double.self) {
-                            Text("\(Int(m))m")
+                            Text(formatMinutes(m))
                         }
                     }
                     AxisGridLine()
@@ -273,3 +273,9 @@ struct MainWindow: View {
 }
 
 extension Session: Identifiable {}
+
+private func formatMinutes(_ m: Double) -> String {
+    if m < 60 { return "\(Int(m))m" }
+    let h = m / 60
+    return h.truncatingRemainder(dividingBy: 1) == 0 ? "\(Int(h))h" : String(format: "%.1fh", h)
+}

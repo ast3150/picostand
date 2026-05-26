@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct StandingDeskApp: App {
+struct PicostandApp: App {
     @State private var store = SessionStore()
     @State private var reader = SerialReader()
     @State private var settings = AppSettings()
@@ -19,7 +19,7 @@ struct StandingDeskApp: App {
         }
         .menuBarExtraStyle(.window)
 
-        Window("Standing Desk", id: "main") {
+        Window("Picostand", id: "main") {
             MainWindow()
                 .environment(store)
                 .environment(reader)

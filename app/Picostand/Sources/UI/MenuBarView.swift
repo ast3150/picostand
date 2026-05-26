@@ -33,7 +33,7 @@ struct MenuBarView: View {
                 }
                 Spacer()
                 Menu {
-                    Button("Quit Standing Desk") { NSApplication.shared.terminate(nil) }
+                    Button("Quit Picostand") { NSApplication.shared.terminate(nil) }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }

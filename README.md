@@ -9,7 +9,11 @@ desk, powered by a USB cable to your monitor. When the monitor is on, the
 laptop is connected, and the app is running, your activity is logged.
 Sit and stand transitions are detected from the distance to the floor.
 
-![screenshot placeholder](docs/screenshot.png)
+<p align="center">
+  <img src="docs/screenshot.png" width="520" alt="Main window">
+  &nbsp;
+  <img src="docs/popover.png" width="240" alt="Menu bar popover">
+</p>
 
 ```bash
 git clone https://github.com/ast3150/picostand.git
@@ -60,6 +64,12 @@ makes the protocol robust to disconnects.
 | **Double-sided tape or VHB strips** | Stick the Pico + sensor under the desk. | already had some |
 | _Optional_: small breadboard | Cleaner prototype, easier to undo. | ~3 € |
 | _Optional_: 3D-printed case | Protects the electronics. Search Printables for "RCWL-9620 case" + "Pi Pico case". | filament |
+
+<p align="center">
+  <img src="docs/sensor.jpg" width="380" alt="Pico WH + RCWL-9620 wired up">
+  <br>
+  <sub>RCWL-9620 (left, in a printed case) wired to a Pi Pico WH — yellow→GP0 (SDA), white→GP1 (SCL), red→3V3, black→GND.</sub>
+</p>
 
 ### Wiring
 
@@ -152,8 +162,8 @@ Requires **macOS 26** (Tahoe), Xcode 17+, and
 brew install --cask tuist     # or: brew install tuist
 cd app
 tuist install                 # resolve ORSSerialPort dep
-tuist generate                # generate StandingDesk.xcworkspace
-open StandingDesk.xcworkspace
+tuist generate                # generate Picostand.xcworkspace
+open Picostand.xcworkspace
 ```
 
 Or build + run from the command line:
@@ -161,11 +171,11 @@ Or build + run from the command line:
 ```bash
 cd app
 tuist generate --no-open
-xcodebuild -workspace StandingDesk.xcworkspace \
-           -scheme StandingDesk \
+xcodebuild -workspace Picostand.xcworkspace \
+           -scheme Picostand \
            -destination "platform=macOS" \
            -derivedDataPath .build build
-open .build/Build/Products/Debug/StandingDesk.app
+open .build/Build/Products/Debug/Picostand.app
 ```
 
 ### What it does
@@ -198,7 +208,7 @@ open .build/Build/Products/Debug/StandingDesk.app
 
 ### Architecture
 
-The app code lives in `app/StandingDesk/Sources/`:
+The app code lives in `app/Picostand/Sources/`:
 
 | File | Responsibility |
 |------|----------------|
@@ -254,7 +264,7 @@ app/
   Project.swift       # Tuist project definition
   Tuist.swift
   Tuist/Package.swift # External SPM dependencies (ORSSerialPort)
-  StandingDesk/
+  Picostand/
     Sources/          # Swift source (see Architecture above)
     Resources/        # Assets
 ```

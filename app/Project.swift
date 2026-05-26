@@ -1,22 +1,22 @@
 import ProjectDescription
 
 let project = Project(
-    name: "StandingDesk",
+    name: "Picostand",
     targets: [
         .target(
-            name: "StandingDesk",
+            name: "Picostand",
             destinations: .macOS,
             product: .app,
-            bundleId: "com.appswithlove.standingdesk",
+            bundleId: "com.appswithlove.picostand",
             deploymentTargets: .macOS("26.0"),
             infoPlist: .extendingDefault(with: [
-                "CFBundleDisplayName": "Standing Desk",
+                "CFBundleDisplayName": "Picostand",
                 "LSUIElement": false,
                 "NSHumanReadableCopyright": "© 2026",
             ]),
             buildableFolders: [
-                "StandingDesk/Sources",
-                "StandingDesk/Resources",
+                "Picostand/Sources",
+                "Picostand/Resources",
             ],
             dependencies: [
                 .external(name: "ORSSerial"),
