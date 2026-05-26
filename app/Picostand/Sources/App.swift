@@ -16,6 +16,7 @@ struct PicostandApp: App {
                 .environment(settings)
         } label: {
             Image(systemName: menuBarSymbol)
+                .task { await wireApp() }
         }
         .menuBarExtraStyle(.window)
 
@@ -25,7 +26,6 @@ struct PicostandApp: App {
                 .environment(reader)
                 .environment(settings)
                 .modelContainer(store.container)
-                .task { await wireApp() }
         }
         .defaultSize(width: 720, height: 600)
         .windowToolbarStyle(.unified)

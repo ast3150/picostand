@@ -37,8 +37,12 @@ final class SerialReader: NSObject {
     private let manager = ORSSerialPortManager.shared()
 
     var onEvent: ((PicoEvent) -> Void)?
+    private var didStart = false
+    private var retryTimer: Timer?
 
     func start() {
+        guard !didStart else { return }
+        didStart = true
         autoConnect()
         NotificationCenter.default.addObserver(
             self,
@@ -52,6 +56,11 @@ final class SerialReader: NSObject {
             name: NSNotification.Name.ORSSerialPortsWereDisconnected,
             object: nil
         )
+        // Safety net: if a connect attempt hangs (port stuck after previous
+        // process exit), retry every few seconds until we're connected.
+        retryTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.autoConnect() }
+        }
     }
 
     @objc private func portsChanged() {
@@ -59,7 +68,14 @@ final class SerialReader: NSObject {
     }
 
     private func autoConnect() {
-        guard let p = findPicoPort() else { return }
+        // Already connected — nothing to do.
+        if case .connected = connection, port?.isOpen == true { return }
+        guard let p = findPicoPort() else {
+            connection = .disconnected
+            return
+        }
+        // If a previous attempt left a port half-open, close it first.
+        port?.close()
         connection = .connecting(path: p.path)
         p.baudRate = 115200
         p.delegate = self
