@@ -11,7 +11,7 @@ let project = Project(
             deploymentTargets: .macOS("26.0"),
             infoPlist: .extendingDefault(with: [
                 "CFBundleDisplayName": "Picostand",
-                "LSUIElement": false,
+                "LSUIElement": true,
                 "NSHumanReadableCopyright": "© 2026",
             ]),
             buildableFolders: [
