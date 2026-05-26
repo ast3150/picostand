@@ -31,13 +31,22 @@ final class SessionStore {
         }
     }
 
+    // Mirrors SerialReader.plausibleRange. Events outside this range are sensor noise that
+    // the block-change callback handles — don't let them open new sessions.
+    private static let plausibleRange = 300...1500
+
     func handle(_ event: PicoEvent) {
         switch event {
-        case let .transition(state, _, seq):
+        case let .transition(state, d, seq):
+            guard Self.plausibleRange.contains(d) else { return }
             applyTransition(to: state, seq: seq)
-        case let .heartbeat(state, _, seq):
+        case let .heartbeat(state, d, seq):
+            guard Self.plausibleRange.contains(d) else { return }
             if currentState == .unknown, state != .unknown {
                 applyTransition(to: state, seq: seq)
+            } else {
+                // Heartbeat with no state change — bump revision so live durations refresh.
+                revision &+= 1
             }
         default:
             break
@@ -52,6 +61,9 @@ final class SessionStore {
             try? context.save()
         }
         currentState = .unknown
+        // Reset so the next event (likely the same seq as before the block) reopens a session
+        // via applyTransition's seq <= lastSeq idempotency guard.
+        lastSeq = 0
         revision &+= 1
     }
 

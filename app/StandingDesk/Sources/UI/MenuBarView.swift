@@ -114,11 +114,15 @@ struct MenuBarView: View {
 
     private var subline: String {
         if reader.sensorBlocked { return "Sensor blocked or misaimed" }
-        if case .connected = reader.connection, let open = store.openSession() {
-            return "for \(Format.duration(open.duration)) · today"
+        switch reader.connection {
+        case .disconnected: return "Desk not connected"
+        case .connecting:   return "Connecting…"
+        case .connected:
+            if let open = store.openSession() {
+                return "for \(Format.duration(open.duration)) · today"
+            }
+            return "Waiting for sensor reading…"
         }
-        if case .disconnected = reader.connection { return "Desk not connected" }
-        return "Connecting…"
     }
 
     private var stateIcon: String {

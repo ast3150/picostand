@@ -6,7 +6,7 @@ SIT_MM   = 633         # calibrated
 STAND_MM = 937         # calibrated
 SAMPLE_HZ = 2
 DEBOUNCE_N = 3
-HB_SEC = 10
+HB_SEC = 1
 SANITY_MIN, SANITY_MAX = 300, 1500
 BUF_MAX = 50
 

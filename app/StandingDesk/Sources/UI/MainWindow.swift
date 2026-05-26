@@ -260,12 +260,15 @@ struct MainWindow: View {
         if reader.sensorBlocked {
             return "Reading \(Format.cm(reader.lastDistanceMm ?? 0)) — clear the area under the desk."
         }
-        if case .disconnected = reader.connection { return "Desk not connected" }
-        if case .connecting  = reader.connection { return "Connecting…" }
-        if let open = store.openSession() {
-            return "for \(Format.duration(open.duration)) — since \(open.startedAt.formatted(date: .omitted, time: .shortened))"
+        switch reader.connection {
+        case .disconnected: return "Desk not connected"
+        case .connecting:   return "Connecting…"
+        case .connected:
+            if let open = store.openSession() {
+                return "for \(Format.duration(open.duration)) — since \(open.startedAt.formatted(date: .omitted, time: .shortened))"
+            }
+            return "Connected · waiting for sensor reading"
         }
-        return ""
     }
 }
 
