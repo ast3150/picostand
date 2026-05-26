@@ -1,9 +1,20 @@
 .DS_Store
 *.swp
-.build/
+
+# Tuist
+app/.build/
+app/Derived/
+app/*.xcodeproj
+app/*.xcworkspace
+app/Tuist/.build/
+app/Tuist/.package.resolved
+
+# Xcode
 DerivedData/
 *.xcuserstate
 xcuserdata/
+
+# Python
 __pycache__/
 *.pyc
 .venv/
