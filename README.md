@@ -1,15 +1,20 @@
-# Standing Desk Tracker
+# picostand
 
 A tiny under-desk USB sensor + a macOS menu-bar app that tracks how much
 time you actually spend standing at your standing desk, nags you when you
 don't, and turns it into streaks so you keep going.
 
-The hardware lives under the desk, powered by a USB cable to your monitor.
-When the monitor is on, the laptop is connected, and the app is running,
-your activity is logged. Sit and stand transitions are detected from the
-distance to the floor.
+The hardware (a **Pi Pico** + ultrasonic distance sensor) lives under the
+desk, powered by a USB cable to your monitor. When the monitor is on, the
+laptop is connected, and the app is running, your activity is logged.
+Sit and stand transitions are detected from the distance to the floor.
 
 ![screenshot placeholder](docs/screenshot.png)
+
+```bash
+git clone https://github.com/ast3150/picostand.git
+cd picostand
+```
 
 ## Why
 
