@@ -94,10 +94,7 @@ private struct DeskSettings: View {
                 } label: {
                     Label("Calibrate…", systemImage: "scope")
                 }
-                .disabled({
-                    if case .connected = reader.connection { return false }
-                    return true
-                }())
+                .disabled(!reader.isConnected)
             } header: {
                 Text("Thresholds")
             } footer: {
@@ -133,7 +130,4 @@ private struct DeskSettings: View {
         }
     }
 
-    private func pushConfig() {
-        reader.send(["cmd": "cfg", "sit": settings.sitThresholdMm, "stand": settings.standThresholdMm])
-    }
 }

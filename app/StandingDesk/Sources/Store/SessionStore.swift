@@ -170,7 +170,7 @@ final class SessionStore {
         for s in all {
             if s.startedAt >= cutoff {
                 context.delete(s)
-            } else if s.endedAt == nil || (s.endedAt ?? .now) > cutoff {
+            } else if s.endedAt == nil || s.endedAt! > cutoff {
                 s.endedAt = cutoff
             }
         }

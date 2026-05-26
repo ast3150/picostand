@@ -95,8 +95,8 @@ struct MenuBarView: View {
             .frame(width: 72, height: 72)
 
             VStack(alignment: .leading, spacing: 8) {
-                statRow(icon: "figure.stand", label: "Standing", value: format(totals.stand), tint: .green)
-                statRow(icon: "chair", label: "Sitting", value: format(totals.sit), tint: .orange)
+                statRow(icon: "figure.stand", label: "Standing", value: Format.duration(totals.stand), tint: .green)
+                statRow(icon: "chair", label: "Sitting", value: Format.duration(totals.sit), tint: .orange)
                 statRow(icon: "flame.fill", label: "Streak", value: "\(store.currentStreak(goalSecs: goal))d", tint: .red)
             }
             Spacer()
@@ -113,46 +113,23 @@ struct MenuBarView: View {
     }
 
     private var subline: String {
-        let _ = store.revision
         if reader.sensorBlocked { return "Sensor blocked or misaimed" }
         if case .connected = reader.connection, let open = store.openSession() {
-            return "for \(format(open.duration)) · today"
+            return "for \(Format.duration(open.duration)) · today"
         }
         if case .disconnected = reader.connection { return "Desk not connected" }
         return "Connecting…"
     }
 
     private var stateIcon: String {
-        if reader.sensorBlocked { return "exclamationmark.triangle.fill" }
-        switch store.currentState {
-        case .standing: return "figure.stand"
-        case .sitting: return "chair"
-        case .unknown: return "questionmark.circle"
-        }
+        reader.sensorBlocked ? "exclamationmark.triangle.fill" : store.currentState.icon
     }
 
     private var stateText: String {
-        if reader.sensorBlocked { return "Sensor blocked" }
-        switch store.currentState {
-        case .standing: return "Standing"
-        case .sitting: return "Sitting"
-        case .unknown: return "Waiting"
-        }
+        reader.sensorBlocked ? "Sensor blocked" : store.currentState.label
     }
 
     private var stateTint: Color {
-        if reader.sensorBlocked { return .orange }
-        switch store.currentState {
-        case .standing: return .green
-        case .sitting: return .orange
-        case .unknown: return .gray
-        }
-    }
-
-    private func format(_ t: TimeInterval) -> String {
-        let m = Int(t) / 60
-        if m < 1 { return "<1m" }
-        if m < 60 { return "\(m)m" }
-        return String(format: "%dh %02dm", m / 60, m % 60)
+        reader.sensorBlocked ? .orange : store.currentState.tint
     }
 }

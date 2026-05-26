@@ -40,8 +40,7 @@ final class NotificationScheduler {
               let store, let settings, let reader,
               settings.notificationsEnabled
         else { return }
-        // Only if currently connected to the desk
-        guard case .connected = reader.connection else { return }
+        guard reader.isConnected else { return }
         // Sensor must be giving believable readings
         guard !reader.sensorBlocked else { return }
         // Only if currently sitting and the open session has run past the reminder threshold

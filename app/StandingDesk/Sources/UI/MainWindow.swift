@@ -71,8 +71,8 @@ struct MainWindow: View {
                 Text(subline)
                     .foregroundStyle(.secondary)
                 HStack(spacing: 20) {
-                    bigStat(value: format(totals.stand), label: "Standing", tint: .green, icon: "figure.stand")
-                    bigStat(value: format(totals.sit), label: "Sitting", tint: .orange, icon: "chair")
+                    bigStat(value: Format.duration(totals.stand), label: "Standing", tint: .green, icon: "figure.stand")
+                    bigStat(value: Format.duration(totals.sit), label: "Sitting", tint: .orange, icon: "chair")
                 }
                 .padding(.top, 6)
             }
@@ -191,7 +191,7 @@ struct MainWindow: View {
                         xEnd: .value("end", min(s.endedAt ?? .now, endOfDay)),
                         y: .value("row", "")
                     )
-                    .foregroundStyle(s.deskState == .standing ? Color.green : Color.orange)
+                    .foregroundStyle(s.deskState.tint)
                     .cornerRadius(3)
                 }
                 .chartXScale(domain: startOfDay...endOfDay)
@@ -218,8 +218,8 @@ struct MainWindow: View {
 
     private func sessionRow(_ s: Session) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: s.deskState == .standing ? "figure.stand" : "chair")
-                .foregroundStyle(s.deskState == .standing ? Color.green : Color.orange)
+            Image(systemName: s.deskState.icon)
+                .foregroundStyle(s.deskState.tint)
                 .frame(width: 16)
             Text(s.deskState.rawValue.capitalized)
             if s.isOpen {
@@ -228,7 +228,7 @@ struct MainWindow: View {
             Spacer()
             Text(s.startedAt, style: .time).foregroundStyle(.secondary).monospacedDigit()
             Text("·").foregroundStyle(.tertiary)
-            Text(format(s.duration)).monospacedDigit().frame(width: 60, alignment: .trailing)
+            Text(Format.duration(s.duration)).monospacedDigit().frame(width: 60, alignment: .trailing)
         }
         .font(.callout)
         .padding(.vertical, 2)
@@ -249,21 +249,11 @@ struct MainWindow: View {
     }
 
     private var stateTint: Color {
-        if reader.sensorBlocked { return .orange }
-        switch store.currentState {
-        case .standing: return .green
-        case .sitting: return .orange
-        case .unknown: return .gray
-        }
+        reader.sensorBlocked ? .orange : store.currentState.tint
     }
 
     private var stateText: String {
-        if reader.sensorBlocked { return "Sensor blocked" }
-        switch store.currentState {
-        case .standing: return "Standing"
-        case .sitting: return "Sitting"
-        case .unknown: return "Waiting"
-        }
+        reader.sensorBlocked ? "Sensor blocked" : store.currentState.label
     }
 
     private var subline: String {
@@ -271,18 +261,11 @@ struct MainWindow: View {
             return "Reading \(Format.cm(reader.lastDistanceMm ?? 0)) — clear the area under the desk."
         }
         if case .disconnected = reader.connection { return "Desk not connected" }
-        if case .connecting = reader.connection { return "Connecting…" }
+        if case .connecting  = reader.connection { return "Connecting…" }
         if let open = store.openSession() {
-            return "for \(format(open.duration)) — since \(open.startedAt.formatted(date: .omitted, time: .shortened))"
+            return "for \(Format.duration(open.duration)) — since \(open.startedAt.formatted(date: .omitted, time: .shortened))"
         }
         return ""
-    }
-
-    private func format(_ t: TimeInterval) -> String {
-        let m = Int(t) / 60
-        if m < 1 { return "<1m" }
-        if m < 60 { return "\(m)m" }
-        return String(format: "%dh %02dm", m / 60, m % 60)
     }
 }
 

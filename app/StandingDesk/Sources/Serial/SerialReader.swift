@@ -17,6 +17,11 @@ final class SerialReader: NSObject {
 
     // Plausible desk-to-floor range. Outside = sensor blocked, misaimed, or returning garbage.
     private let plausibleRange = 300...1500
+    var isConnected: Bool {
+        if case .connected = connection { return true }
+        return false
+    }
+
     var sensorBlocked: Bool {
         guard let d = lastDistanceMm else { return false }
         return !plausibleRange.contains(d)
