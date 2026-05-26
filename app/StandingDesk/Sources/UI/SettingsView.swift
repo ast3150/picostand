@@ -112,6 +112,11 @@ private struct DeskSettings: View {
                 Button("Reset all data", role: .destructive) {
                     store.resetAll()
                 }
+                #if DEBUG
+                Button("Seed demo data") {
+                    store.seedDemoData()
+                }
+                #endif
             }
         }
         .formStyle(.grouped)

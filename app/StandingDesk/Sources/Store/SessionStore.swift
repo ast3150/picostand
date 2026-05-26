@@ -198,4 +198,37 @@ final class SessionStore {
     func resetLastHour() {
         resetSessions(since: Date().addingTimeInterval(-3600))
     }
+
+    #if DEBUG
+    /// Wipe and insert one week of realistic sessions for screenshots / demos.
+    /// Streak should come out to ≥5 days, today's progress around 75 %.
+    func seedDemoData() {
+        resetAll()
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        // (dayOffset, segments-of-the-day [state, hours])
+        let plan: [(Int, [(DeskState, Double)])] = [
+            (-6, [(.sitting, 1.0), (.standing, 1.1), (.sitting, 2.0), (.standing, 1.0)]),
+            (-5, [(.sitting, 2.0), (.standing, 1.5), (.sitting, 2.5), (.standing, 1.0)]),
+            (-4, [(.sitting, 0.4)]),                                                       // short day → skipped
+            (-3, [(.sitting, 1.5), (.standing, 1.5), (.sitting, 2.5), (.standing, 1.5)]),
+            (-2, [(.sitting, 2.0), (.standing, 1.0), (.sitting, 2.5), (.standing, 1.1)]),
+            (-1, [(.sitting, 2.0), (.standing, 1.5), (.sitting, 1.5), (.standing, 1.0)]),
+            ( 0, [(.sitting, 0.5), (.standing, 1.5)]),                                    // today, last open
+        ]
+        for (offset, segs) in plan {
+            let dayStart = cal.date(byAdding: .day, value: offset, to: today)!
+            var cursor = dayStart.addingTimeInterval(9 * 3600) // 9 AM start
+            for (i, seg) in segs.enumerated() {
+                let end = cursor.addingTimeInterval(seg.1 * 3600)
+                let isOpenNow = offset == 0 && i == segs.count - 1
+                context.insert(Session(startedAt: cursor, endedAt: isOpenNow ? nil : end, state: seg.0))
+                if isOpenNow { currentState = seg.0 }
+                cursor = end
+            }
+        }
+        try? context.save()
+        revision &+= 1
+    }
+    #endif
 }
