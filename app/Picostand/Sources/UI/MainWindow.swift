@@ -55,7 +55,7 @@ struct MainWindow: View {
                 VStack(spacing: 0) {
                     Text("\(Int(progress * 100))%")
                         .font(.system(size: 36, weight: .bold, design: .rounded).monospacedDigit())
-                    Text("of \(Int(settings.dailyStandGoalMinutes / 60))h goal")
+                    Text("of \(Format.duration(settings.dailyStandGoalSeconds)) goal")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -110,7 +110,7 @@ struct MainWindow: View {
                 Text(streak == 1 ? "day" : "days")
                     .foregroundStyle(.secondary)
             }
-            Text(streak > 0 ? "Keep it going!" : "Stand for \(settings.dailyStandGoalMinutes / 60)h today to start.")
+            Text(streak > 0 ? "Keep it going!" : "Stand for \(Format.duration(settings.dailyStandGoalSeconds)) today to start.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer(minLength: 0)

@@ -100,8 +100,8 @@ extension SerialReader: ORSSerialPortDelegate {
         let path = serialPort.path
         Task { @MainActor in
             self.connection = .connected(path: path)
-            // Ask Pico to re-emit any buffered transitions
-            self.send(["cmd": "replay"])
+            // No replay on connect: re-stamping buffered transitions at .now creates
+            // ghost sessions. With 1 Hz heartbeats, state resyncs within a second.
         }
     }
 
