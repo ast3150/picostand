@@ -9,6 +9,9 @@ final class SessionStore {
 
     private(set) var currentState: DeskState = .unknown
     private(set) var lastSeq: Int = 0
+    // Bumped on insert/edit so views recompute. Also tickled by a 30s timer.
+    private(set) var revision: Int = 0
+    private var ticker: Timer?
 
     init() {
         do {
@@ -16,9 +19,15 @@ final class SessionStore {
         } catch {
             fatalError("ModelContainer: \(error)")
         }
-        // Initialize currentState from any open session
         if let open = openSession() {
             currentState = open.deskState
+        }
+        startTicker()
+    }
+
+    private func startTicker() {
+        ticker = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.revision &+= 1 }
         }
     }
 
@@ -27,7 +36,6 @@ final class SessionStore {
         case let .transition(state, _, seq):
             applyTransition(to: state, seq: seq)
         case let .heartbeat(state, _, seq):
-            // First heartbeat after a fresh boot: opens initial session if none
             if currentState == .unknown, state != .unknown {
                 applyTransition(to: state, seq: seq)
             }
@@ -36,9 +44,19 @@ final class SessionStore {
         }
     }
 
+    /// Truncate any open session at `at` and clear current state. Called when the sensor
+    /// becomes unreliable so that time spent blocked is not counted toward any goal.
+    func markSensorBlocked(at time: Date) {
+        if let open = openSession() {
+            open.endedAt = time
+            try? context.save()
+        }
+        currentState = .unknown
+        revision &+= 1
+    }
+
     private func applyTransition(to state: DeskState, seq: Int) {
         guard state != .unknown else { return }
-        // Idempotency: ignore replayed seq we've already applied
         if seq != 0, seq <= lastSeq { return }
         if state == currentState { return }
         let now = Date()
@@ -49,6 +67,7 @@ final class SessionStore {
         try? context.save()
         currentState = state
         if seq != 0 { lastSeq = seq }
+        revision &+= 1
     }
 
     func openSession() -> Session? {
@@ -65,14 +84,14 @@ final class SessionStore {
         let cal = Calendar.current
         let start = cal.startOfDay(for: day)
         let end = cal.date(byAdding: .day, value: 1, to: start)!
-        let descriptor = FetchDescriptor<Session>(
-            predicate: #Predicate {
-                $0.startedAt < end &&
-                ($0.endedAt == nil || $0.endedAt! >= start)
-            },
-            sortBy: [SortDescriptor(\.startedAt)]
-        )
-        return (try? context.fetch(descriptor)) ?? []
+        // Fetch all and filter in Swift — SwiftData #Predicate misbehaves with optionals.
+        let descriptor = FetchDescriptor<Session>(sortBy: [SortDescriptor(\.startedAt)])
+        let all = (try? context.fetch(descriptor)) ?? []
+        return all.filter { s in
+            guard s.startedAt < end else { return false }
+            if let e = s.endedAt { return e >= start }
+            return true
+        }
     }
 
     func totals(on day: Date = .now) -> (sit: TimeInterval, stand: TimeInterval) {
@@ -92,5 +111,79 @@ final class SessionStore {
             }
         }
         return (sit, stand)
+    }
+
+    /// Days (most recent first) where standing total met the goal.
+    /// A day where total desk time was below the goal is skipped (you couldn't have met
+    /// the goal even if you'd stood the whole time) — covers weekends, vacations, and
+    /// days the Pico was disconnected.
+    func currentStreak(goalSecs: TimeInterval) -> Int {
+        let cal = Calendar.current
+        var n = 0
+        var day = Date()
+        for _ in 0..<365 {
+            let (sit, stand) = totals(on: day)
+            let active = sit + stand
+            let isToday = cal.isDateInToday(day)
+            if active < goalSecs {
+                // Not enough desk time to possibly hit the goal — skip.
+            } else if stand >= goalSecs {
+                n += 1
+            } else if isToday {
+                // Today, goal not yet met — don't break, look back.
+            } else {
+                // Past day with enough time at desk to have hit the goal, but didn't.
+                break
+            }
+            day = cal.date(byAdding: .day, value: -1, to: day) ?? day
+        }
+        return n
+    }
+
+    /// Last N days of standing totals, oldest first.
+    func dailyStandTotals(days: Int) -> [(day: Date, stand: TimeInterval, sit: TimeInterval)] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        return (0..<days).reversed().map { offset in
+            let d = cal.date(byAdding: .day, value: -offset, to: today)!
+            let (sit, stand) = totals(on: d)
+            return (d, stand, sit)
+        }
+    }
+
+    // MARK: - Maintenance
+
+    func resetAll() {
+        let descriptor = FetchDescriptor<Session>()
+        let all = (try? context.fetch(descriptor)) ?? []
+        for s in all { context.delete(s) }
+        try? context.save()
+        currentState = .unknown
+        lastSeq = 0
+        revision &+= 1
+    }
+
+    /// Delete sessions started on or after `cutoff`. Truncate the tail of any session crossing it.
+    func resetSessions(since cutoff: Date) {
+        let descriptor = FetchDescriptor<Session>()
+        let all = (try? context.fetch(descriptor)) ?? []
+        for s in all {
+            if s.startedAt >= cutoff {
+                context.delete(s)
+            } else if s.endedAt == nil || (s.endedAt ?? .now) > cutoff {
+                s.endedAt = cutoff
+            }
+        }
+        try? context.save()
+        currentState = .unknown
+        revision &+= 1
+    }
+
+    func resetToday() {
+        resetSessions(since: Calendar.current.startOfDay(for: .now))
+    }
+
+    func resetLastHour() {
+        resetSessions(since: Date().addingTimeInterval(-3600))
     }
 }

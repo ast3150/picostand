@@ -1,34 +1,68 @@
 import SwiftUI
-import SwiftData
 
 struct MenuBarView: View {
     @Environment(SessionStore.self) private var store
     @Environment(SerialReader.self) private var reader
+    @Environment(AppSettings.self) private var settings
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            header
+        VStack(alignment: .leading, spacing: 0) {
+            hero
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 14)
+
+            ringSection
+                .padding(.horizontal, 16)
+                .padding(.bottom, 14)
+
             Divider()
-            stats
-            Divider()
-            HStack {
-                Button("Open Window") { openWindow(id: "main") }
+
+            HStack(spacing: 8) {
+                Button {
+                    openWindow(id: "main")
+                } label: {
+                    Label("Stats", systemImage: "chart.bar.fill")
+                }
+                Button {
+                    openSettings()
+                } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
                 Spacer()
-                Button("Quit") { NSApplication.shared.terminate(nil) }
+                Menu {
+                    Button("Quit Standing Desk") { NSApplication.shared.terminate(nil) }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .menuStyle(.borderlessButton)
+                .frame(width: 28)
             }
+            .buttonStyle(.borderless)
+            .padding(12)
         }
-        .padding(12)
-        .frame(width: 260)
+        .frame(width: 300)
+        .background(.regularMaterial)
     }
 
-    private var header: some View {
-        HStack {
-            Image(systemName: stateIcon)
-                .font(.title2)
-            VStack(alignment: .leading) {
-                Text(stateText).font(.headline)
-                Text(connectionText)
+    private var hero: some View {
+        let _ = store.revision
+        return HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(stateTint.opacity(0.18))
+                    .frame(width: 54, height: 54)
+                Image(systemName: stateIcon)
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundStyle(stateTint)
+                    .symbolEffect(.bounce, value: store.currentState)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(stateText)
+                    .font(.title2.bold())
+                Text(subline)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -36,49 +70,89 @@ struct MenuBarView: View {
         }
     }
 
-    private var stats: some View {
+    private var ringSection: some View {
+        let _ = store.revision
         let totals = store.totals()
-        let total = totals.sit + totals.stand
-        let pct = total > 0 ? Int((totals.stand / total) * 100) : 0
-        return VStack(alignment: .leading, spacing: 4) {
-            Text("Today").font(.subheadline).foregroundStyle(.secondary)
-            Text("\(pct)% standing").font(.title3.monospacedDigit())
-            HStack {
-                Label(format(totals.stand), systemImage: "figure.stand")
-                Spacer()
-                Label(format(totals.sit), systemImage: "chair")
+        let goal = settings.dailyStandGoalSeconds
+        let progress = goal > 0 ? min(1, totals.stand / goal) : 0
+        return HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .stroke(.tertiary, lineWidth: 8)
+                Circle()
+                    .trim(from: 0, to: progress)
+                    .stroke(.green.gradient, style: StrokeStyle(lineWidth: 8, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .animation(.easeOut(duration: 0.4), value: progress)
+                VStack(spacing: 0) {
+                    Text("\(Int(progress * 100))%")
+                        .font(.title3.bold().monospacedDigit())
+                    Text("of goal")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
-            .font(.caption.monospacedDigit())
+            .frame(width: 72, height: 72)
+
+            VStack(alignment: .leading, spacing: 8) {
+                statRow(icon: "figure.stand", label: "Standing", value: format(totals.stand), tint: .green)
+                statRow(icon: "chair", label: "Sitting", value: format(totals.sit), tint: .orange)
+                statRow(icon: "flame.fill", label: "Streak", value: "\(store.currentStreak(goalSecs: goal))d", tint: .red)
+            }
+            Spacer()
         }
     }
 
+    private func statRow(icon: String, label: String, value: String, tint: Color) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).foregroundStyle(tint).frame(width: 14)
+            Text(label).foregroundStyle(.secondary).font(.caption)
+            Spacer()
+            Text(value).font(.caption.monospacedDigit().weight(.semibold))
+        }
+    }
+
+    private var subline: String {
+        let _ = store.revision
+        if reader.sensorBlocked { return "Sensor blocked or misaimed" }
+        if case .connected = reader.connection, let open = store.openSession() {
+            return "for \(format(open.duration)) · today"
+        }
+        if case .disconnected = reader.connection { return "Desk not connected" }
+        return "Connecting…"
+    }
+
     private var stateIcon: String {
+        if reader.sensorBlocked { return "exclamationmark.triangle.fill" }
         switch store.currentState {
-        case .standing: "figure.stand"
-        case .sitting: "chair"
-        case .unknown: "questionmark.circle"
+        case .standing: return "figure.stand"
+        case .sitting: return "chair"
+        case .unknown: return "questionmark.circle"
         }
     }
 
     private var stateText: String {
+        if reader.sensorBlocked { return "Sensor blocked" }
         switch store.currentState {
-        case .standing: "Standing"
-        case .sitting: "Sitting"
-        case .unknown: "Unknown"
+        case .standing: return "Standing"
+        case .sitting: return "Sitting"
+        case .unknown: return "Waiting"
         }
     }
 
-    private var connectionText: String {
-        switch reader.connection {
-        case .disconnected: "Not connected"
-        case .connecting: "Connecting…"
-        case .connected: "Connected"
+    private var stateTint: Color {
+        if reader.sensorBlocked { return .orange }
+        switch store.currentState {
+        case .standing: return .green
+        case .sitting: return .orange
+        case .unknown: return .gray
         }
     }
 
     private func format(_ t: TimeInterval) -> String {
         let m = Int(t) / 60
-        if m < 60 { return "\(m) min" }
+        if m < 1 { return "<1m" }
+        if m < 60 { return "\(m)m" }
         return String(format: "%dh %02dm", m / 60, m % 60)
     }
 }

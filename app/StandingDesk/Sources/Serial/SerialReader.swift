@@ -13,6 +13,19 @@ final class SerialReader: NSObject {
     private(set) var connection: ConnectionState = .disconnected
     private(set) var lastDistanceMm: Int?
     private(set) var lastEventAt: Date?
+    private(set) var lastValidReadingAt: Date?
+
+    // Plausible desk-to-floor range. Outside = sensor blocked, misaimed, or returning garbage.
+    private let plausibleRange = 300...1500
+    var sensorBlocked: Bool {
+        guard let d = lastDistanceMm else { return false }
+        return !plausibleRange.contains(d)
+    }
+
+    /// Called when the blocked status flips. `lastValidAt` is the time of the most recent
+    /// plausible reading, used to truncate any open session at that moment.
+    var onSensorBlockedDidChange: ((_ blocked: Bool, _ lastValidAt: Date?) -> Void)?
+    private var wasBlocked: Bool = false
 
     private var port: ORSSerialPort?
     private var buffer = Data()
@@ -109,9 +122,24 @@ private extension SerialReader {
     func decode(_ line: Data) {
         guard let event = try? JSONDecoder().decode(PicoEvent.self, from: line) else { return }
         lastEventAt = .now
-        if case let .transition(_, d, _) = event { lastDistanceMm = d }
-        if case let .heartbeat(_, d, _) = event { lastDistanceMm = d }
-        if case let .raw(d) = event { lastDistanceMm = d }
+        var newDistance: Int?
+        switch event {
+        case let .transition(_, d, _): newDistance = d
+        case let .heartbeat(_, d, _): newDistance = d
+        case let .raw(d): newDistance = d
+        default: break
+        }
+        if let d = newDistance {
+            lastDistanceMm = d
+            if plausibleRange.contains(d) {
+                lastValidReadingAt = lastEventAt
+            }
+            let nowBlocked = !plausibleRange.contains(d)
+            if nowBlocked != wasBlocked {
+                wasBlocked = nowBlocked
+                onSensorBlockedDidChange?(nowBlocked, lastValidReadingAt)
+            }
+        }
         onEvent?(event)
     }
 }
