@@ -7,6 +7,8 @@ struct PicostandApp: App {
     @State private var reader = SerialReader()
     @State private var settings = AppSettings()
     @State private var notifier = NotificationScheduler()
+    @State private var idleWatcher: IdleWatcher?
+    @State private var didWire = false
 
     var body: some Scene {
         MenuBarExtra {
@@ -16,7 +18,7 @@ struct PicostandApp: App {
                 .environment(settings)
         } label: {
             Image(systemName: menuBarSymbol)
-                .task { await wireApp() }
+                .task(id: "wireApp") { await wireApp() }
         }
         .menuBarExtraStyle(.window)
 
@@ -48,6 +50,8 @@ struct PicostandApp: App {
 
     @MainActor
     private func wireApp() async {
+        guard !didWire else { return }
+        didWire = true
         reader.onEvent = { event in
             store.handle(event)
         }
@@ -57,6 +61,9 @@ struct PicostandApp: App {
             }
         }
         reader.start()
+        let watcher = IdleWatcher { time in store.markSensorBlocked(at: time) }
+        watcher.start()
+        idleWatcher = watcher
         await notifier.requestAuthorization()
         notifier.bind(store: store, settings: settings, reader: reader)
     }

@@ -11,6 +11,10 @@ final class SessionStore {
     private(set) var lastSeq: Int = 0
     // Bumped on insert/edit so views recompute. Also tickled by a 30s timer.
     private(set) var revision: Int = 0
+    // Bumped only on actual data mutations (or day rollover). Used to invalidate
+    // the streak cache — otherwise 1 Hz heartbeats would re-run the 365-day loop.
+    private var mutationRevision: Int = 0
+    private var streakCache: (rev: Int, day: Date, goal: TimeInterval, value: Int)?
     private var ticker: Timer?
 
     init() {
@@ -59,6 +63,7 @@ final class SessionStore {
         if let open = openSession() {
             open.endedAt = time
             try? context.save()
+            mutationRevision &+= 1
         }
         currentState = .unknown
         // Reset so the next event (likely the same seq as before the block) reopens a session
@@ -79,6 +84,7 @@ final class SessionStore {
         try? context.save()
         currentState = state
         if seq != 0 { lastSeq = seq }
+        mutationRevision &+= 1
         revision &+= 1
     }
 
@@ -131,10 +137,15 @@ final class SessionStore {
     /// days the Pico was disconnected.
     func currentStreak(goalSecs: TimeInterval) -> Int {
         let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        if let c = streakCache, c.rev == mutationRevision, c.day == today, c.goal == goalSecs {
+            return c.value
+        }
+        let all = allSessions()
         var n = 0
         var day = Date()
         for _ in 0..<365 {
-            let (sit, stand) = totals(on: day)
+            let (sit, stand) = totals(on: day, in: all, cal: cal)
             let active = sit + stand
             let isToday = cal.isDateInToday(day)
             if active < goalSecs {
@@ -149,6 +160,7 @@ final class SessionStore {
             }
             day = cal.date(byAdding: .day, value: -1, to: day) ?? day
         }
+        streakCache = (mutationRevision, today, goalSecs, n)
         return n
     }
 
@@ -156,11 +168,38 @@ final class SessionStore {
     func dailyStandTotals(days: Int) -> [(day: Date, stand: TimeInterval, sit: TimeInterval)] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: .now)
+        let all = allSessions()
         return (0..<days).reversed().map { offset in
             let d = cal.date(byAdding: .day, value: -offset, to: today)!
-            let (sit, stand) = totals(on: d)
+            let (sit, stand) = totals(on: d, in: all, cal: cal)
             return (d, stand, sit)
         }
+    }
+
+    private func allSessions() -> [Session] {
+        let descriptor = FetchDescriptor<Session>(sortBy: [SortDescriptor(\.startedAt)])
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    private func totals(on day: Date, in all: [Session], cal: Calendar) -> (sit: TimeInterval, stand: TimeInterval) {
+        let start = cal.startOfDay(for: day)
+        let end = min(cal.date(byAdding: .day, value: 1, to: start)!, .now)
+        var sit: TimeInterval = 0
+        var stand: TimeInterval = 0
+        for s in all {
+            guard s.startedAt < end else { break }
+            let e = s.endedAt ?? .now
+            guard e >= start else { continue }
+            let a = max(s.startedAt, start)
+            let b = min(e, end)
+            let d = max(0, b.timeIntervalSince(a))
+            switch s.deskState {
+            case .sitting: sit += d
+            case .standing: stand += d
+            case .unknown: break
+            }
+        }
+        return (sit, stand)
     }
 
     // MARK: - Maintenance
@@ -172,6 +211,7 @@ final class SessionStore {
         try? context.save()
         currentState = .unknown
         lastSeq = 0
+        mutationRevision &+= 1
         revision &+= 1
     }
 
@@ -188,6 +228,7 @@ final class SessionStore {
         }
         try? context.save()
         currentState = .unknown
+        mutationRevision &+= 1
         revision &+= 1
     }
 
@@ -228,6 +269,7 @@ final class SessionStore {
             }
         }
         try? context.save()
+        mutationRevision &+= 1
         revision &+= 1
     }
     #endif
